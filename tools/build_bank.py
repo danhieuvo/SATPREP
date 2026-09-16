@@ -22,9 +22,14 @@ sys.path.insert(0, str(ROOT / "tools"))
 from bankgen.common import qid, run  # noqa: E402
 
 MODULES = [
-    "math_algebra", "math_advanced", "math_data", "math_geometry",
+    "math_algebra", "math_advanced", "math_data", "math_geometry", "math_hard",
     "rw_boundaries", "rw_form", "rw_wic", "rw_transitions", "rw_quant", "rw_synthesis", "rw_passages", "rw_evidence",
+    "rw_hard",
 ]
+# Short, formula-built items in these skills read as medium on the real test, whatever their template says.
+# Hard questions in these skills come only from the hand-written rw_hard module.
+MAX_DIFFICULTY = {("rw_boundaries", "boundaries"): 2, ("rw_form", "form-structure"): 2,
+                  ("rw_transitions", "transitions"): 2, ("rw_synthesis", "synthesis"): 2}
 SEED = 20260914
 # Multiply each module's per-template counts. Templates with a small parameter space simply cap out.
 SCALE = {"math_algebra": 3.6, "math_advanced": 3.9, "math_data": 2.9, "math_geometry": 3.3}
@@ -135,14 +140,16 @@ def main():
                 print(f"  note: {name}.{gen.__name__} produced {len(qs)}/{n}")
             for q in qs:
                 q.setdefault("difficulty", diff)
+                q["difficulty"] = min(q["difficulty"], MAX_DIFFICULTY.get((name, skill), 3))
                 full = {"section": mod.SECTION, "domain": mod.DOMAIN, "skill": skill, **q}
-                full["id"] = f"g.{mod.SECTION}.{skill}.{full['difficulty']}.{content_hash(full)}"
+                sk = full["skill"]  # a builder may set skill per question (rw_hard does)
+                full["id"] = f"g.{mod.SECTION}.{sk}.{full['difficulty']}.{content_hash(full)}"
                 if full["id"] in ids:
                     continue
                 ids.add(full["id"])
                 validate(full, errors)
-                by_file[(mod.SECTION, skill, full["difficulty"])].append(full)
-                counts[(mod.SECTION, full["domain"], skill)] += 1
+                by_file[(mod.SECTION, sk, full["difficulty"])].append(full)
+                counts[(mod.SECTION, full["domain"], sk)] += 1
             if sample and qs:
                 samples.append(f"### {gen.__name__} ({skill}, d{diff}) x{len(qs)}\nP: {qs[0]['prompt']}\nC: {' | '.join(qs[0].get('choices') or [])}\nA: {qs[0]['answer']}\nE: {qs[0]['explanation']}")
 

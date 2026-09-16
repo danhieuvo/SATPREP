@@ -288,10 +288,11 @@
   }
 
   // ---------- Test assembly ----------
+  // Module 1 spans all levels; the harder Module 2 is mostly hard questions, the easier one mostly easy/medium.
   const DIFF_MIX = {
-    m1:   [1 / 3, 1 / 3, 1 / 3],
-    hard: [0.15, 0.35, 0.50],
-    easy: [0.50, 0.35, 0.15]
+    m1:   [0.30, 0.40, 0.30],
+    hard: [0.05, 0.30, 0.65],
+    easy: [0.45, 0.45, 0.10]
   };
 
   // Split n into integer counts proportional to weights (largest remainder).
@@ -304,8 +305,11 @@
     return out;
   }
 
-  async function assembleModule(section, level, exclude) {
+  // size: total questions (defaults to a full module); domains keep the blueprint's proportions.
+  async function assembleModule(section, level, exclude, size) {
     const tax = TAXONOMY[section];
+    const fullSize = tax.domains.reduce((s, d) => s + d.perModule, 0);
+    const domCounts = apportion(size || fullSize, tax.domains.map(d => d.perModule / fullSize));
     const picked = [];
     const used = new Set(exclude);
     const usedGroups = new Set(exclude.map(id => (getQ(id) || {}).group).filter(Boolean));
@@ -328,8 +332,8 @@
       return got;
     }
 
-    for (const dom of tax.domains) {
-      const targets = apportion(dom.perModule, DIFF_MIX[level]);
+    for (const [di, dom] of tax.domains.entries()) {
+      const targets = apportion(domCounts[di], DIFF_MIX[level]);
       let short = 0;
       for (const [i, d] of [1, 2, 3].entries()) {
         if (!targets[i]) continue;
@@ -362,15 +366,15 @@
   // Each question is worth its difficulty (1-3 points). A section's performance ratio is
   // compared with the maximum available on the harder route; the lower route's second
   // module is discounted so its ceiling sits below 800, as on the adaptive test.
-  const HARD_WEIGHT = 0.15 * 1 + 0.35 * 2 + 0.5 * 3;
+  const HARD_WEIGHT = DIFF_MIX.hard.reduce((s, w, i) => s + w * (i + 1), 0);
   const EASY_DISCOUNT = 0.8;
-  const pts = id => getQ(id).difficulty;
+  const pts = id => (getQ(id) || { difficulty: 0 }).difficulty;
 
   function moduleEarned(mod) {
-    return mod.qids.reduce((s, id) => s + (isCorrect(getQ(id), mod.answers[id]) ? pts(id) : 0), 0);
+    return mod.qids.reduce((s, id) => s + (getQ(id) && isCorrect(getQ(id), mod.answers[id]) ? pts(id) : 0), 0);
   }
   function moduleMax(mod) { return mod.qids.reduce((s, id) => s + pts(id), 0); }
-  function moduleCorrect(mod) { return mod.qids.filter(id => isCorrect(getQ(id), mod.answers[id])).length; }
+  function moduleCorrect(mod) { return mod.qids.filter(id => getQ(id) && isCorrect(getQ(id), mod.answers[id])).length; }
 
   function routeFor(mod1) {
     return moduleEarned(mod1) / moduleMax(mod1) >= 0.5 ? 'hard' : 'easy';

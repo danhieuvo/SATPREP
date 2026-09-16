@@ -434,8 +434,8 @@ def no_solution_a(r):
     rhs = r.randint(-9, 9)
     if Fr(rhs, c) == n:
         return None
-    q = {"prompt": S(r"$$ax + [[c]]y = [[rhs]]$$ $$y = [[mn]]$$ In the system of equations above, $a$ is a constant. If the system has no solution, what is the value of $a$?",
-                     c=c, rhs=rhs, mn=lin(m, n))}
+    q = {"prompt": S(r"$$ax[[cy]] = [[rhs]]$$ $$y = [[mn]]$$ In the system of equations above, $a$ is a constant. If the system has no solution, what is the value of $a$?",
+                     cy=term(c, "y"), rhs=rhs, mn=lin(m, n))}
     q.update(spr(a))
     q["explanation"] = S(r"No solution means the lines are parallel. The second line has slope $[[m]]$. The first line is $y = -\frac{a}{[[c]]}x[[it]]$, with slope $-\frac{a}{[[c]]}$. Setting $-\frac{a}{[[c]]} = [[m]]$ gives $a = [[a]]$. The $y$-intercepts ($[[i]]$ and $[[n]]$) differ, so there is no solution.",
                          m=m, c=c, i=Fr(rhs, c), it=term(Fr(rhs, c), ""), a=a, n=n)

@@ -1,4 +1,4 @@
-/* Practice tests: full (adaptive, 4 modules) and half (1 module per section). */
+/* Practice tests: full and half, both adaptive (Module 1 performance routes Module 2), plus results. */
 (function () {
   'use strict';
   const S = window.SAT;
@@ -53,9 +53,9 @@
           <h2>Half test</h2>
           <p class="big">67 min</p>
           <ul>
-            <li>Reading &amp; Writing: 1 module × 27 questions, 32 min</li>
-            <li>Math: 1 module × 22 questions, 35 min</li>
-            <li>No break. Good for a weeknight check-in</li>
+            <li>Reading &amp; Writing: 2 modules (14 + 13 questions), about 16 min each</li>
+            <li>Math: 2 modules × 11 questions, about 17 min each</li>
+            <li>Adaptive like the full test. No break</li>
           </ul>
           <button class="btn" data-start="half" ${active ? 'disabled' : ''}>Start half test</button>
         </div>
@@ -86,18 +86,23 @@
     });
   }
 
-  async function newModule(section, level, exclude) {
+  // Half tests use two shorter modules per section, with time in proportion to the full module.
+  const HALF_SIZES = { rw: [14, 13], math: [11, 11] };
+  async function newModule(section, level, exclude, kind) {
+    const tax = S.TAXONOMY[section];
+    const full = tax.domains.reduce((s, d) => s + d.perModule, 0);
+    const size = kind === 'half' ? HALF_SIZES[section][level === 'm1' ? 0 : 1] : full;
     return {
-      section, level, qids: await S.assembleModule(section, level, exclude),
+      section, level, qids: await S.assembleModule(section, level, exclude, size),
       answers: {}, marked: {}, elim: {}, qIndex: 0,
-      timeLeft: S.TAXONOMY[section].minutes * 60, timeUsed: 0
+      timeLeft: Math.round(tax.minutes * 60 * size / full), timeUsed: 0
     };
   }
 
   async function startTest(kind) {
     S.state.activeTest = {
-      id: 't' + Date.now(), kind, startedAt: Date.now(),
-      modules: [await newModule('rw', 'm1', [])],
+      id: 't' + Date.now(), kind, startedAt: Date.now(), adaptiveHalf: true,
+      modules: [await newModule('rw', 'm1', [], kind)],
       current: 0, phase: 'intro', breakLeft: BREAK_SECONDS
     };
     S.save();
@@ -111,7 +116,6 @@
     const m = t.modules[i];
     const secNum = m.section === 'rw' ? 1 : 2;
     const name = S.TAXONOMY[m.section].name;
-    if (t.kind === 'half') return `Section ${secNum}: ${name}`;
     return `Section ${secNum}, Module ${m.level === 'm1' ? 1 : 2}: ${name}`;
   }
 
@@ -126,6 +130,14 @@
       loadingScreen(app, 'Loading questions…');
       await S.ensure(t.modules.flatMap(m => m.qids));
       if (location.hash !== '#/test/run') return;
+      if (cur.qids.some(id => !S.getQ(id))) {
+        app.innerHTML = `<section class="page narrow"><div class="card center">
+          <p class="big">Some questions in this test have been updated since you started it.</p>
+          <p class="muted">Please discard it and start a new test.</p>
+          <div class="quick"><button class="btn" id="drop">Discard and go to tests</button></div></div></section>`;
+        app.querySelector('#drop').addEventListener('click', () => { S.state.activeTest = null; S.save(); location.hash = '#/tests'; });
+        return;
+      }
     }
     if (t.phase === 'intro') return intro(app, t);
     if (t.phase === 'break') return breakScreen(app, t);
@@ -138,7 +150,7 @@
     app.innerHTML = `<section class="page narrow"><div class="card center">
       <p class="muted">${t.kind === 'full' ? 'Full practice test' : 'Half practice test'}</p>
       <h1>${esc(moduleLabel(t, t.current))}</h1>
-      <p class="big">${m.qids.length} questions · ${tax.minutes} minutes</p>
+      <p class="big">${m.qids.length} questions · ${S.fmtTime(m.timeLeft)}</p>
       <p class="muted">${m.section === 'math'
         ? 'A graphing calculator and reference sheet are available. About a quarter of questions ask you to type your own answer.'
         : 'Each question has its own short passage. Questions are grouped by type.'}
@@ -350,14 +362,16 @@
     stopTimer();
     const m = t.modules[t.current];
     const exclude = t.modules.flatMap(x => x.qids);
-    if (!(t.kind === 'full' && m.level === 'm1') && m.section !== 'rw') return finishTest(t);
+    // Old half tests (saved before half tests became adaptive) have a single module per section.
+    const singleModule = t.kind === 'half' && !t.adaptiveHalf;
+    if (!(m.level === 'm1' && !singleModule) && m.section !== 'rw') return finishTest(t);
     loadingScreen(app, 'Preparing the next module…');
 
-    if (t.kind === 'full' && m.level === 'm1') {
-      t.modules.push(await newModule(m.section, S.routeFor(m), exclude));
+    if (m.level === 'm1' && !singleModule) {
+      t.modules.push(await newModule(m.section, S.routeFor(m), exclude, t.kind));
       t.current++; t.phase = 'intro';
     } else if (m.section === 'rw') {
-      t.modules.push(await newModule('math', 'm1', exclude));
+      t.modules.push(await newModule('math', 'm1', exclude, t.kind));
       t.current++;
       t.phase = t.kind === 'full' ? 'break' : 'intro';
     } else {
@@ -401,7 +415,7 @@
         let n = 0, c = 0;
         mods.forEach(m => m.qids.forEach(qid => {
           const q = S.getQ(qid);
-          if (q.domain === d.id) { n++; if (S.isCorrect(q, m.answers[qid])) c++; }
+          if (q && q.domain === d.id) { n++; if (S.isCorrect(q, m.answers[qid])) c++; }
         }));
         return { name: d.name, n, c };
       });
@@ -410,7 +424,9 @@
 
     let filter = 'all';
     const rows = [];
+    let missing = 0;
     sections.forEach(s => s.mods.forEach((m, mi) => m.qids.forEach((qid, qi) => {
+      if (!S.getQ(qid)) { missing++; return; }
       rows.push({ q: S.getQ(qid), resp: m.answers[qid], marked: !!m.marked[qid],
         where: `${s.sec === 'rw' ? 'R&W' : 'Math'} M${mi + 1} · Q${qi + 1}` });
     })));
@@ -433,6 +449,7 @@
           <span class="bar"><span style="width:${d.n ? 100 * d.c / d.n : 0}%"></span></span></div>`).join('')}
       </div>`).join('')}</div>
       <h2>Question review</h2>
+      ${missing ? `<p class="muted small">${missing} question${missing > 1 ? 's' : ''} from this test ${missing > 1 ? 'have' : 'has'} since been revised and can't be shown. Your score above is unchanged.</p>` : ''}
       <div class="tabs"><button data-f="all" class="on">All</button><button data-f="wrong">Incorrect or blank</button><button data-f="marked">Marked for review</button></div>
       <div id="rows"></div>
     </section>`;
