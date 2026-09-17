@@ -105,7 +105,7 @@
       const [sec, skill, d, k] = key.split('/');
       PENDING[key] = new Promise((resolve, reject) => {
         const el = document.createElement('script');
-        el.src = `bank/gen/${sec}/${skill}/d${d}-${k}.js`;
+        el.src = (window.SAT_BASE || '') + `bank/gen/${sec}/${skill}/d${d}-${k}.js`;
         el.onload = () => resolve();
         el.onerror = () => { delete PENDING[key]; reject(new Error('Could not load ' + el.src)); };
         document.head.appendChild(el);
@@ -413,7 +413,7 @@
 
   window.SAT = {
     TAXONOMY, DIFFICULTY, LETTERS, MANIFEST, ORIGINAL, getQ, domainOf, skillName,
-    metaOf, ensure, loadPool, countFor, attemptStats, missedIds,
+    metaOf, ensure, loadPool, loadChunk, countFor, attemptStats, missedIds,
     get state() { return state; }, save, recordAttempt, lastAttempt, resetAll,
     get user() { return profiles.current; }, get knownUsers() { return Object.values(profiles.names); }, signIn, signOut,
     esc, shuffle, renderMath, fmtTime,

@@ -73,6 +73,7 @@ bank/gen/<section>/<skill>/d<difficulty>-<n>.js   generated chunks (~150 questio
 tools/build_bank.py       builds, validates, and writes the generated bank
 tools/bankgen/math_*.py   math generators
 tools/bankgen/rw_*.py     R&W builders; *_data*.py hold the authored atoms, sets, records, and passages
+APP/                      SAT Quest: game-style daily practice app for friend groups that uses this bank (see APP/README.md)
 ```
 
 The browser loads only the chunks it needs. A practice set loads 1–3 small files, and a full test loads a few dozen. A question's chunk is derived from its id (`g.<section>.<skill>.<difficulty>.<hash>`), so saved results can always be reloaded.
