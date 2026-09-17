@@ -59,9 +59,34 @@ In the code and database, packs are still called "squads" (`sq_*` tables), and s
    ```
 5. Commit and push. The live app is at `https://danhieuvo.github.io/SATPREP/APP/`.
 
-The publishable key is designed to be public. Anyone can *read* pack rows, but every *write* goes through database functions that check each player's private device secret. That means no one can change another player's XP, streak, or feed.
+### Privacy: kids see only their own pack
 
-**Privacy note:** anyone with the app's key could read player rows, which hold a display name, avatar, XP, streak, and league. Have kids use a first name or nickname. No emails, passwords, or ages are collected.
+- **The public key reads nothing directly.** Every table is locked, and the app's public (publishable) key can't read any table.
+- **Kids see only their own pack.** The app gets pack members and the activity feed through database functions that check the player's private device secret, and those functions return only that player's pack.
+- **Nobody can change someone else's data.** Every write also checks the device secret, so no one can edit another player's XP, streak, or feed.
+- **What's shared inside a pack:** display name, dog, ratings, level, streak, and league. Have kids use a first name or nickname. No emails, passwords, or ages are collected from kids.
+
+## Admin page (see every account)
+
+`APP/admin.html` shows every player:
+- their pack, overall/Math/R&W ratings, and breed levels
+- streak, last lesson, lessons, accuracy, weekly XP, and dog hunger
+- search, pack filter, sorting, and CSV download
+- click a player for both radar maps and every question-type rating
+
+It only works with the pack server connected. It isn't linked from the app and is hidden from search engines, but its security comes from the login.
+
+One-time setup in Supabase:
+1. Run the latest `supabase.sql` (safe to re-run).
+2. **Authentication → Users → Add user → Create new user**: enter the admin email and a strong password, and tick **Auto Confirm User**.
+3. **SQL Editor**, run once, using the email from step 2. Keep this line out of the repo:
+   ```sql
+   insert into sq_admins(email) values ('admin-email@example.com');
+   ```
+4. Optional but recommended: **Authentication → Sign In / Providers**, turn off **Allow new users to sign up**. Only you need an account; kids never sign in.
+5. Open `https://danhieuvo.github.io/SATPREP/APP/admin.html` and sign in.
+
+The password is sent only to Supabase; it isn't stored in any file in this repo. The sign-in lasts until the browser tab is closed.
 
 ## Run locally
 
@@ -76,9 +101,10 @@ Then open http://localhost:8765/APP/.
 ## Files
 
 ```
+admin.html, js/admin.js   admin dashboard (Supabase Auth sign-in; admins listed in sq_admins)
 index.html            shell; loads ../bank, ../js/core.js (question loading + answer checking), then the app
 config.js             pack server URL/key (blank = device-only)
-supabase.sql          tables, read policies, and secret-checked write functions
+supabase.sql          locked tables, pack-only read functions, secret-checked writes, admin functions
 js/dogs.js            20 dog breeds (head and full sitting body) from shared SVG parts, moods, outfits, coat colors, accessories, mascot pair (names at the top)
 js/game.js            rules: breed levels + difficulty dials, Elo ratings (SAT scale), XP, streaks, hearts, treats, feeding, quests, achievements, leagues
 js/backend.js         Supabase (plain fetch) and device-only backends with the same interface

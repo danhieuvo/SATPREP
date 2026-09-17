@@ -1,4 +1,4 @@
-/* Squad backend. "cloud" talks to a Supabase project (see supabase.sql and README) so friends on
+/* Pack backend. "cloud" talks to a Supabase project (see supabase.sql and README) so friends on
    different phones share leagues and a feed. Without config it runs in "local" mode: squads only
    include profiles on this device, which is enough to try everything out. */
 (function () {
@@ -37,14 +37,17 @@
       throw new Error('Could not create a pack code. Try again.');
     },
     async getSquad(code) {
-      const rows = await rest(`/sq_squads?code=eq.${enc(code)}&select=code,name`);
+      const rows = await rpc('sq_get_squad', { p_code: code });
       return rows && rows[0] ? rows[0] : null;
     },
-    async players(code) {
-      return rest(`/sq_players?squad=eq.${enc(code)}&select=id,data,updated_at&limit=100`);
+    // The server returns only the caller's own pack (checked with their device secret).
+    async players() {
+      const s = G.s;
+      return rpc('sq_pack_players', { p_id: s.id, p_secret: s.secret });
     },
-    async events(code) {
-      return rest(`/sq_events?squad=eq.${enc(code)}&select=id,player,target,kind,body,kudos,created_at&order=id.desc&limit=60`);
+    async events() {
+      const s = G.s;
+      return rpc('sq_pack_events', { p_id: s.id, p_secret: s.secret });
     },
     async save(s) {
       const { pending, ...priv } = s;

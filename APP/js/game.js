@@ -79,6 +79,17 @@
       challengeN: n + 3
     };
   }
+  // Short labels for the radar maps.
+  const TYPE_SHORT = {
+    'words-in-context': 'Vocabulary', 'text-structure': 'Text structure', 'cross-text': 'Cross-text', 'central-ideas': 'Main idea',
+    'evidence-textual': 'Text evidence', 'evidence-quant': 'Data evidence', 'inferences': 'Inferences', 'boundaries': 'Punctuation',
+    'form-structure': 'Grammar', 'transitions': 'Transitions', 'synthesis': 'Synthesis',
+    'linear-one-var': '1-var linear', 'linear-functions': 'Linear func.', 'linear-two-var': '2-var linear', 'systems': 'Systems',
+    'inequalities': 'Inequalities', 'equivalent-expressions': 'Expressions', 'nonlinear-equations': 'Nonlinear eq.', 'nonlinear-functions': 'Nonlinear func.',
+    'ratios-rates': 'Ratios & rates', 'percentages': 'Percentages', 'one-var-data': '1-var data', 'two-var-data': '2-var data',
+    'probability': 'Probability', 'inference': 'Stats inference', 'area-volume': 'Area & volume', 'lines-angles': 'Lines & angles',
+    'right-triangles': 'Right triangles', 'circles': 'Circles'
+  };
   function typeName(section, id) {
     for (const d of S.TAXONOMY[section].domains) { const k = d.skills.find(x => x.id === id); if (k) return k.name; }
     return id;
@@ -336,6 +347,15 @@
   const overallRating = () => Math.min(1600, sectionRating('math') + sectionRating('rw'));
   // (The Learn screen's score bar is the section rating.)
   const practiceScore = sectionRating;
+  // Ratings for any player's saved Elo map (used by the admin page).
+  function ratingsFromElo(elo) {
+    const e = k => (elo && elo[k] ? elo[k].r : ELO_START);
+    const types = {};
+    for (const sec of ['math', 'rw']) for (const k of TYPE_ORDER[sec]) types[k] = { rating: round10(satScale(e(k))), n: elo && elo[k] ? elo[k].n : 0 };
+    const secR = sec => Math.min(800, round10(weighted(sec, k => satScale(e(k)))));
+    const math = secR('math'), rw = secR('rw');
+    return { types, math, rw, overall: Math.min(1600, math + rw) };
+  }
 
   const canRepair = () => !!(s.lostStreak && s.lostStreak.day === today() && s.lostStreak.n >= 2);
 
@@ -629,8 +649,8 @@
     FOODS, HUNGER_STATES, fullnessAt, hungerState, fullness, feed, practiceScore,
     MAX_HEARTS, HEART_MS, PRICES, MAX_FREEZES, BOOST_MS, GOALS, LEAGUES, COSMETICS, ACHIEVEMENTS, QUEST_KINDS, XP_PER,
     LESSON_SIZE, LADDER, SIZE_CLASSES, TYPE_ORDER, CHALLENGE_PASS, JUMP_PASS, BAG_AFTER,
-    levelSpec, levelName, typeName, mixWords, pathOf, openBag, proficiency, attempts,
-    ELO_START, Q_RATING, LOW_EVIDENCE, RATING_TITLES, rating, ratingTitle, sectionRating, overallRating,
+    levelSpec, levelName, typeName, TYPE_SHORT, mixWords, pathOf, openBag, proficiency, attempts,
+    ELO_START, Q_RATING, LOW_EVIDENCE, RATING_TITLES, rating, ratingTitle, sectionRating, overallRating, ratingsFromElo,
     get s() { return s; }, get profiles() { return profiles; },
     create, load, adopt, save, signOut, removeProfile,
     today, addDays, dayDiff, weekOf, msToWeekEnd, msToMidnight, rng, hashStr, randId,

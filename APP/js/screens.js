@@ -397,16 +397,7 @@
   }
 
   // ================= Scent Tracker (proficiency radar maps) =================
-  const SHORT = {
-    'words-in-context': 'Vocabulary', 'text-structure': 'Text structure', 'cross-text': 'Cross-text', 'central-ideas': 'Main idea',
-    'evidence-textual': 'Text evidence', 'evidence-quant': 'Data evidence', 'inferences': 'Inferences', 'boundaries': 'Punctuation',
-    'form-structure': 'Grammar', 'transitions': 'Transitions', 'synthesis': 'Synthesis',
-    'linear-one-var': '1-var linear', 'linear-functions': 'Linear func.', 'linear-two-var': '2-var linear', 'systems': 'Systems',
-    'inequalities': 'Inequalities', 'equivalent-expressions': 'Expressions', 'nonlinear-equations': 'Nonlinear eq.', 'nonlinear-functions': 'Nonlinear func.',
-    'ratios-rates': 'Ratios & rates', 'percentages': 'Percentages', 'one-var-data': '1-var data', 'two-var-data': '2-var data',
-    'probability': 'Probability', 'inference': 'Stats inference', 'area-volume': 'Area & volume', 'lines-angles': 'Lines & angles',
-    'right-triangles': 'Right triangles', 'circles': 'Circles'
-  };
+  const SHORT = G.TYPE_SHORT;
   const LEVEL_RING = [350, 500, 650, 800];   // radar rings on the 200-800 scale; the edge is 800
   const radius = r => Math.max(0.03, Math.min(1, (r - 200) / 600));
 
