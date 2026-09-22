@@ -14,7 +14,7 @@ A lean, static website for digital SAT practice. There is no server code and not
 | Section | Hand-written | Generated | Total |
 |---|---|---|---|
 | Math | 80 | 22,133 | **22,213** |
-| Reading & Writing | 90 + 282 hard items | 22,170 | **22,542** |
+| Reading & Writing | 90 + 352 hard items | 22,522 | **22,612** |
 
 Every question is original. None are copied or paraphrased from College Board, Khan Academy, or Princeton Review. All follow the digital SAT's published question types and domains.
 
@@ -27,15 +27,19 @@ Every question is original. None are copied or paraphrased from College Board, K
   - Main idea, structure, inference, and cross-text: passages.
   - Quantitative evidence: generated tables and charts, with every claim checked against the numbers.
   - Rhetorical synthesis: fictional note sets.
-  - Hard questions (`rw_hard.py` + `hard_data*.py`): 282 hand-written items in every R&W skill. They use longer academic and literary passages, underlined-sentence questions, and two close answer choices, like the harder digital SAT items.
+  - Hard questions (`rw_hard.py` + `hard_data*.py`): 352 hand-written items in every R&W skill. They use longer academic and literary passages, underlined-sentence questions, and two close answer choices, like the harder digital SAT items. Hard words-in-context items give four plausible academic words, only one of which fits precisely.
 - People, studies, and data in R&W items are illustrative.
 
 Current R&W mix (including hand-written items): evidence-quant 6.3k, synthesis 5.6k, boundaries 4.3k, form 1.7k, words in context 1.5k, and transitions 1.3k. The passage-based skills have about 300 each.
 
 ### Difficulty levels
 
-- Short, formula-built R&W items in boundaries, form/structure, transitions, and synthesis are capped at medium (`MAX_DIFFICULTY` in `build_bank.py`), because they read as medium on the real test. Hard questions in those skills come only from the hand-written set.
+- Short, formula-built R&W items in boundaries, form/structure, transitions, synthesis, and words in context are capped at medium (`MAX_DIFFICULTY` in `build_bank.py`), because they read as medium on the real test. Hard questions in those skills come only from the hand-written set, and the harder Module 2 prefers hand-written items (about 18 of its 27 questions).
 - Test modules draw different mixes: Module 1 is 30% easy, 40% medium, 30% hard. The harder Module 2 is 5/30/65, and the easier Module 2 is 45/45/10.
+
+### Avoiding repeats
+
+Test assembly (`assembleModule` in `js/core.js`) skips questions and passage groups used in the user's last 4 tests, allows at most 2 questions from any one generator template per module, and loads candidate chunks interleaved by skill so every skill reaches the pool. Four tests in a row share no questions.
 
 Behind those passage-based counts: about 330 original passages (each with a main-idea, a structure, and an inference question), 93 paired-text sets (3 cross-text questions each), and 155 hypothesis records (support and weaken questions). Words in context comes from about 380 four-word sets. Each sentence is written so that only its own word fits. When "a" or "an" comes right before the blank and would give away the answer, the article moves into each choice instead.
 
