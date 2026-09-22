@@ -29,7 +29,8 @@ MODULES = [
 # Short, formula-built items in these skills read as medium on the real test, whatever their template says.
 # Hard questions in these skills come only from the hand-written rw_hard module.
 MAX_DIFFICULTY = {("rw_boundaries", "boundaries"): 2, ("rw_form", "form-structure"): 2,
-                  ("rw_transitions", "transitions"): 2, ("rw_synthesis", "synthesis"): 2}
+                  ("rw_transitions", "transitions"): 2, ("rw_synthesis", "synthesis"): 2,
+                  ("rw_wic", "words-in-context"): 2}
 SEED = 20260914
 # Multiply each module's per-template counts. Templates with a small parameter space simply cap out.
 SCALE = {"math_algebra": 3.6, "math_advanced": 3.9, "math_data": 2.9, "math_geometry": 3.3}
@@ -44,7 +45,7 @@ def parse_num(s):
 
 
 CHUNK_SIZE = 150
-FIELD_ORDER = ["id", "section", "domain", "skill", "difficulty", "group", "passage", "prompt", "choices", "answer", "explanation"]
+FIELD_ORDER = ["id", "section", "domain", "skill", "difficulty", "tmpl", "group", "passage", "prompt", "choices", "answer", "explanation"]
 
 
 def content_hash(q):
@@ -143,6 +144,8 @@ def main():
                 q["difficulty"] = min(q["difficulty"], MAX_DIFFICULTY.get((name, skill), 3))
                 full = {"section": mod.SECTION, "domain": mod.DOMAIN, "skill": skill, **q}
                 sk = full["skill"]  # a builder may set skill per question (rw_hard does)
+                # Which generator made it; test assembly uses this to avoid near-identical questions in one module.
+                full.setdefault("tmpl", f"{name}.{gen.__name__}")
                 full["id"] = f"g.{mod.SECTION}.{sk}.{full['difficulty']}.{content_hash(full)}"
                 if full["id"] in ids:
                     continue

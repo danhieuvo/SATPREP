@@ -386,7 +386,9 @@
     const rw = S.sectionScore(bySec('rw')), math = S.sectionScore(bySec('math'));
     const record = {
       id: t.id, kind: t.kind, startedAt: t.startedAt, finishedAt: Date.now(),
-      modules: t.modules.map(m => ({ section: m.section, level: m.level, qids: m.qids, answers: m.answers, marked: m.marked, timeUsed: m.timeUsed })),
+      modules: t.modules.map(m => ({ section: m.section, level: m.level, qids: m.qids, answers: m.answers, marked: m.marked, timeUsed: m.timeUsed,
+        // Passage/sentence groups, so later tests can avoid repeating them even before their chunks load.
+        groups: [...new Set(m.qids.map(id => (S.getQ(id) || {}).group).filter(Boolean))] })),
       scores: { rw, math, total: rw + math }
     };
     t.modules.forEach(m => m.qids.forEach(id => S.recordAttempt(id, S.isCorrect(S.getQ(id), m.answers[id]), 'test')));

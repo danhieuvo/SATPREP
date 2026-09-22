@@ -152,15 +152,21 @@
     return out;
   }
   // Load random chunks until at least `min` matching questions are available (or everything is loaded).
+  // Chunks are interleaved by skill, so every skill in the domain reaches the pool even when `min`
+  // is satisfied early; otherwise a module could miss a skill entirely.
   async function loadPool({ section, domain, skill, diffs = [1, 2, 3], min = 40 }) {
-    const keys = [];
+    const bySkill = [];
     for (const s of skillsMatching(section, domain, skill)) {
+      const keys = [];
       for (const d of diffs) {
         const n = MANIFEST.chunks[`${section}/${s}/${d}`] || 0;
         for (let k = 0; k < n; k++) keys.push(`${section}/${s}/${d}/${k}`);
       }
+      const left = shuffle(keys.filter(k => !LOADED.has(k)));
+      if (left.length) bySkill.push(left);
     }
-    const todo = shuffle(keys.filter(k => !LOADED.has(k)));
+    const todo = [];
+    for (let i = 0; bySkill.some(l => i < l.length); i++) bySkill.forEach(l => { if (i < l.length) todo.push(l[i]); });
     while (loadedMatching(section, domain, skill, diffs).length < min && todo.length) {
       await Promise.all(todo.splice(0, 3).map(loadChunk));
     }
@@ -295,6 +301,21 @@
     easy: [0.45, 0.45, 0.10]
   };
 
+  // Questions and passages used by the last few tests, so new tests don't repeat them.
+  const RECENT_TESTS = 4, TMPL_CAP = 2;
+  function recentlyTested() {
+    const ids = new Set(), groups = new Set();
+    (state.tests || []).slice(-RECENT_TESTS).forEach(t => (t.modules || []).forEach(m => {
+      (m.groups || []).forEach(g => groups.add(g));
+      (m.qids || []).forEach(id => {
+        ids.add(id);
+        const q = getQ(id);
+        if (q && q.group) groups.add(q.group);
+      });
+    }));
+    return { ids, groups };
+  }
+
   // Split n into integer counts proportional to weights (largest remainder).
   function apportion(n, weights) {
     const raw = weights.map(w => w * n);
@@ -314,20 +335,38 @@
     const used = new Set(exclude);
     const usedGroups = new Set(exclude.map(id => (getQ(id) || {}).group).filter(Boolean));
     const unseenFirst = qs => shuffle(qs).sort((a, b) => (state.attempts[a.id] ? 1 : 0) - (state.attempts[b.id] ? 1 : 0));
+    const recent = recentlyTested();
+    const tmplCount = {};
+
+    // Preference order: skip questions (and passages) from recent tests, and allow at most
+    // TMPL_CAP questions from any one generator, so a module doesn't feel repetitive.
+    const handWritten = q => String(q.tmpl || '').startsWith('hard-');
+    const TIERS = [
+      // In the harder Module 2, use the hand-written hard questions first: their wrong answers are the closest.
+      q => (level !== 'hard' || handWritten(q)) && !recent.ids.has(q.id) && !(q.group && recent.groups.has(q.group)) && (tmplCount[q.tmpl] || 0) < TMPL_CAP,
+      q => !recent.ids.has(q.id) && !(q.group && recent.groups.has(q.group)) && (tmplCount[q.tmpl] || 0) < TMPL_CAP,
+      q => !recent.ids.has(q.id) && !(q.group && recent.groups.has(q.group)),
+      q => !recent.ids.has(q.id),
+      () => true
+    ];
 
     function take(pool, n) {
       // Spread picks across skills (least-picked skill first); never reuse a passage/sentence group.
       const counts = {};
-      const cands = unseenFirst(pool.filter(q => !used.has(q.id) && !(q.group && usedGroups.has(q.group))));
       const got = [];
-      while (got.length < n && cands.length) {
-        cands.sort((a, b) => (counts[a.skill] || 0) - (counts[b.skill] || 0));
-        const q = cands.shift();
-        if (q.group && usedGroups.has(q.group)) continue;
-        counts[q.skill] = (counts[q.skill] || 0) + 1;
-        used.add(q.id);
-        if (q.group) usedGroups.add(q.group);
-        got.push(q);
+      for (const allowed of TIERS) {
+        if (got.length >= n) break;
+        const cands = unseenFirst(pool.filter(q => !used.has(q.id) && !(q.group && usedGroups.has(q.group)) && allowed(q)));
+        while (got.length < n && cands.length) {
+          cands.sort((a, b) => (counts[a.skill] || 0) - (counts[b.skill] || 0));
+          const q = cands.shift();
+          if (used.has(q.id) || (q.group && usedGroups.has(q.group))) continue;
+          counts[q.skill] = (counts[q.skill] || 0) + 1;
+          if (q.tmpl) tmplCount[q.tmpl] = (tmplCount[q.tmpl] || 0) + 1;
+          used.add(q.id);
+          if (q.group) usedGroups.add(q.group);
+          got.push(q);
+        }
       }
       return got;
     }
@@ -337,7 +376,7 @@
       let short = 0;
       for (const [i, d] of [1, 2, 3].entries()) {
         if (!targets[i]) continue;
-        const pool = await loadPool({ section, domain: dom.id, diffs: [d], min: targets[i] * 6 });
+        const pool = await loadPool({ section, domain: dom.id, diffs: [d], min: Math.max(80, targets[i] * 30) });
         const got = take(pool, targets[i]);
         picked.push(...got);
         short += targets[i] - got.length;
@@ -345,7 +384,7 @@
       // Borrow the nearest difficulty if a level runs short: hard modules borrow from harder first.
       for (const d of (level === 'easy' ? [1, 2, 3] : [3, 2, 1])) {
         if (short <= 0) break;
-        const got = take(await loadPool({ section, domain: dom.id, diffs: [d], min: short * 6 }), short);
+        const got = take(await loadPool({ section, domain: dom.id, diffs: [d], min: Math.max(80, short * 30) }), short);
         picked.push(...got); short -= got.length;
       }
       if (short > 0) picked.push(...take(await loadPool({ section, min: short * 6 }), short));

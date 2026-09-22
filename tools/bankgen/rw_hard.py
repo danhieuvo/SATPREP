@@ -122,7 +122,7 @@ def build(r):
     for it in load_items():
         skill, domain, prompt = KINDS[it["kind"]]
         res = mcq_text(it["right"][0], it["wrong"], r)
-        out.append({"skill": skill, "domain": domain, "difficulty": it["diff"], "group": it["gid"],
+        out.append({"skill": skill, "domain": domain, "difficulty": it["diff"], "group": it["gid"], "tmpl": f"hard-{it['kind']}",
                     "passage": render(it), "prompt": it["q"] or prompt, **res, "explanation": it["why"]})
     return out
 
